@@ -26,6 +26,29 @@ const RESULT_CLASS = { win: 'good', lose: 'bad', draw: 'warn', other: 'warn' };
 const SPEED_LABEL = { selfFirst: '自分が先行', opponentFirst: '相手が先行', unclear: '判定不可' };
 const SIDE_LABEL = { selfToOpponent: '自分 → 相手', opponentToSelf: '相手 → 自分' };
 
+// タイプ一致技だけを前提にした相性確認用です。
+// 実際の技範囲・特性・持ち物・テラスタル等は含めません。
+const TYPE_CHART = {
+  'ノーマル': { 'いわ': 0.5, 'ゴースト': 0, 'はがね': 0.5 },
+  'ほのお': { 'ほのお': 0.5, 'みず': 0.5, 'くさ': 2, 'こおり': 2, 'むし': 2, 'いわ': 0.5, 'ドラゴン': 0.5, 'はがね': 2 },
+  'みず': { 'ほのお': 2, 'みず': 0.5, 'くさ': 0.5, 'じめん': 2, 'いわ': 2, 'ドラゴン': 0.5 },
+  'でんき': { 'みず': 2, 'でんき': 0.5, 'くさ': 0.5, 'じめん': 0, 'ひこう': 2, 'ドラゴン': 0.5 },
+  'くさ': { 'ほのお': 0.5, 'みず': 2, 'くさ': 0.5, 'どく': 0.5, 'じめん': 2, 'ひこう': 0.5, 'むし': 0.5, 'いわ': 2, 'ドラゴン': 0.5, 'はがね': 0.5 },
+  'こおり': { 'ほのお': 0.5, 'みず': 0.5, 'くさ': 2, 'こおり': 0.5, 'じめん': 2, 'ひこう': 2, 'ドラゴン': 2, 'はがね': 0.5 },
+  'かくとう': { 'ノーマル': 2, 'こおり': 2, 'どく': 0.5, 'ひこう': 0.5, 'エスパー': 0.5, 'むし': 0.5, 'いわ': 2, 'ゴースト': 0, 'あく': 2, 'はがね': 2, 'フェアリー': 0.5 },
+  'どく': { 'くさ': 2, 'どく': 0.5, 'じめん': 0.5, 'いわ': 0.5, 'ゴースト': 0.5, 'はがね': 0, 'フェアリー': 2 },
+  'じめん': { 'ほのお': 2, 'でんき': 2, 'くさ': 0.5, 'どく': 2, 'ひこう': 0, 'むし': 0.5, 'いわ': 2, 'はがね': 2 },
+  'ひこう': { 'でんき': 0.5, 'くさ': 2, 'かくとう': 2, 'むし': 2, 'いわ': 0.5, 'はがね': 0.5 },
+  'エスパー': { 'かくとう': 2, 'どく': 2, 'エスパー': 0.5, 'あく': 0, 'はがね': 0.5 },
+  'むし': { 'ほのお': 0.5, 'くさ': 2, 'かくとう': 0.5, 'どく': 0.5, 'ひこう': 0.5, 'エスパー': 2, 'ゴースト': 0.5, 'あく': 2, 'はがね': 0.5, 'フェアリー': 0.5 },
+  'いわ': { 'ほのお': 2, 'こおり': 2, 'かくとう': 0.5, 'じめん': 0.5, 'ひこう': 2, 'むし': 2, 'はがね': 0.5 },
+  'ゴースト': { 'ノーマル': 0, 'エスパー': 2, 'ゴースト': 2, 'あく': 0.5 },
+  'ドラゴン': { 'ドラゴン': 2, 'はがね': 0.5, 'フェアリー': 0 },
+  'あく': { 'かくとう': 0.5, 'エスパー': 2, 'ゴースト': 2, 'あく': 0.5, 'フェアリー': 0.5 },
+  'はがね': { 'ほのお': 0.5, 'みず': 0.5, 'でんき': 0.5, 'こおり': 2, 'いわ': 2, 'はがね': 0.5, 'フェアリー': 2 },
+  'フェアリー': { 'ほのお': 0.5, 'かくとう': 2, 'どく': 0.5, 'ドラゴン': 2, 'あく': 2, 'はがね': 0.5 },
+};
+
 function e(value) {
   return String(value ?? '').replace(/[&<>'"]/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#039;', '"': '&quot;' }[char]));
 }
@@ -159,6 +182,57 @@ function getMegaNames(baseName) { return state.data?.megaByBase.get(baseName) ||
 function getShownPokemon(baseName, megaName) { return megaName ? getPokemon(megaName) || getBasePokemon(baseName) : getBasePokemon(baseName); }
 function abilitiesOf(pokemon) { return unique([pokemon?.['とくせい1'], pokemon?.['とくせい2'], pokemon?.['かくれとくせい']]); }
 function typeText(pokemon) { return [pokemon?.['タイプ1'], pokemon?.['タイプ2']].filter(Boolean).join('／') || '—'; }
+function pokemonTypes(pokemon) { return [pokemon?.['タイプ1'], pokemon?.['タイプ2']].filter(Boolean); }
+function typeDamageMultiplier(attackType, defender) {
+  return pokemonTypes(defender).reduce((multiplier, defenderType) => multiplier * (TYPE_CHART[attackType]?.[defenderType] ?? 1), 1);
+}
+function bestStabMultiplier(attacker, defender) {
+  const types = pokemonTypes(attacker);
+  if (!types.length || !defender) return 1;
+  return Math.max(...types.map(type => typeDamageMultiplier(type, defender)));
+}
+function typePressureWeight(multiplier) {
+  if (multiplier === 0) return -2;
+  if (multiplier >= 4) return 4;
+  if (multiplier >= 2) return 2;
+  if (multiplier < 1) return -1;
+  return 0;
+}
+function typePressureSummary(multipliers) {
+  return {
+    quad: multipliers.filter(value => value >= 4).length,
+    super: multipliers.filter(value => value >= 2).length,
+    neutral: multipliers.filter(value => value === 1).length,
+    resisted: multipliers.filter(value => value > 0 && value < 1).length,
+    immune: multipliers.filter(value => value === 0).length,
+  };
+}
+function signedNumber(value) { return `${value > 0 ? '+' : ''}${value}`; }
+function setKey(names) { return [...names].filter(Boolean).sort((a, b) => a.localeCompare(b, 'ja')).join('\u0001'); }
+function overlapCount(namesA, namesB) {
+  const second = new Set(namesB.filter(Boolean));
+  return unique(namesA).filter(name => second.has(name)).length;
+}
+function selectedOpponentNames(record) {
+  return (record?.opponentPokemon || []).filter(pokemon => pokemon?.selected).map(pokemon => pokemon.baseName).filter(Boolean);
+}
+function matchupRanking(sourceNames, targetNames) {
+  const targets = targetNames.map(getBasePokemon).filter(Boolean);
+  return sourceNames.map(name => {
+    const source = getBasePokemon(name);
+    if (!source || !targets.length) return null;
+    const againstTargets = targets.map(target => bestStabMultiplier(source, target));
+    const fromTargets = targets.map(target => bestStabMultiplier(target, source));
+    const targetSummary = typePressureSummary(againstTargets);
+    const responseSummary = typePressureSummary(fromTargets);
+    return {
+      name,
+      score: againstTargets.reduce((sum, value) => sum + typePressureWeight(value), 0) - fromTargets.reduce((sum, value) => sum + typePressureWeight(value), 0),
+      target: targetSummary,
+      response: responseSummary,
+    };
+  }).filter(Boolean).sort((a, b) => b.score - a.score || b.target.super - a.target.super || b.target.quad - a.target.quad || a.name.localeCompare(b.name, 'ja'));
+}
 function pokemonMeta(baseName, megaName = '') {
   const base = getBasePokemon(baseName);
   const shown = getShownPokemon(baseName, megaName);
@@ -277,6 +351,7 @@ function renderRecordBody(team) {
       <div class="section-label"><h3>相手の6匹と判明情報</h3><p>選出・技・持ち物・特性は見えた範囲だけ。</p></div>
       <div class="opponent-list">${draft.opponentPokemon.map((opponent, index) => renderOpponentCard(opponent, index)).join('')}</div>
     </div>
+    ${renderMatchupInsights(team, draft)}
     <div class="section-block">
       <div class="section-label"><h3>素早さの対面</h3><p>通常条件かどうかも残せます。</p></div>
       <div class="dynamic-list">${draft.speed.map((row, index) => renderSpeedRow(row, index)).join('')}</div>
@@ -330,6 +405,84 @@ function renderOpponentCard(opponent, index) {
     ` : opponent.baseName ? '<p class="form-error">候補にある元ポケモン名を選んでください。</p>' : '<p class="help-text">選ぶと、対応する技・特性・メガ進化先だけが候補になります。</p>'}
   </article>`;
 }
+function renderMatchupRankItem(row, index, direction) {
+  const isOpponentThreat = direction === 'opponent';
+  const targetText = isOpponentThreat ? '自分6匹へ' : '相手6匹へ';
+  const responseText = isOpponentThreat ? '自分側から' : '相手側から';
+  return `<article class="matchup-rank-item">
+    <span class="rank-number">${index + 1}</span>
+    <div class="matchup-rank-copy"><strong>${e(row.name)}</strong><p>${e(targetText)}：抜群 ${row.target.super}（4倍 ${row.target.quad}）　${e(responseText)}：抜群 ${row.response.super}</p></div>
+    <span class="matchup-score">タイプ差 ${e(signedNumber(row.score))}</span>
+  </article>`;
+}
+function selectionResultClass(candidate) {
+  if (candidate.wins > candidate.losses) return 'good';
+  if (candidate.losses > candidate.wins) return 'bad';
+  return 'warn';
+}
+function selectionResultText(candidate) {
+  const base = `${candidate.total}戦　${candidate.wins}勝${candidate.losses}敗${candidate.draws ? ` ${candidate.draws}分` : ''}`;
+  return candidate.decided ? `${base}　勝率 ${percent(candidate.wins, candidate.decided)}` : base;
+}
+function groupSelectionCandidates(records, opponentNames, mode) {
+  const groups = new Map();
+  const opponentKey = setKey(opponentNames);
+  for (const record of records) {
+    const selected = selectedOpponentNames(record);
+    if (selected.length !== 3 || record.selfPokemon?.length !== 3) continue;
+    const exact = setKey(selected) === opponentKey;
+    const similar = !exact && overlapCount(selected, opponentNames) === 2;
+    if ((mode === 'exact' && !exact) || (mode === 'similar' && !similar)) continue;
+    const selfKey = setKey(record.selfPokemon);
+    if (!groups.has(selfKey)) groups.set(selfKey, { pokemon: [...record.selfPokemon], total: 0, wins: 0, losses: 0, draws: 0, other: 0, dates: [], overlap: mode === 'exact' ? 3 : 2 });
+    const candidate = groups.get(selfKey);
+    candidate.total += 1;
+    candidate.dates.push(record.battleDate);
+    if (record.result === 'win') candidate.wins += 1;
+    else if (record.result === 'lose') candidate.losses += 1;
+    else if (record.result === 'draw') candidate.draws += 1;
+    else candidate.other += 1;
+  }
+  return [...groups.values()].map(candidate => ({ ...candidate, decided: candidate.wins + candidate.losses, rate: candidate.wins + candidate.losses ? candidate.wins / (candidate.wins + candidate.losses) : -1 })).sort((a, b) => {
+    const aReliable = a.total >= 2 ? 1 : 0;
+    const bReliable = b.total >= 2 ? 1 : 0;
+    return bReliable - aReliable || b.rate - a.rate || b.total - a.total || b.wins - a.wins || a.pokemon.join('・').localeCompare(b.pokemon.join('・'), 'ja');
+  });
+}
+function renderSelectionCandidateRows(candidates) {
+  return `<div class="selection-candidate-list">${candidates.map(candidate => `<article class="selection-candidate">
+    <div><strong>${e(candidate.pokemon.join('・'))}</strong><p>${e(selectionResultText(candidate))}</p></div>
+    <span class="tag ${selectionResultClass(candidate)}">${candidate.total < 2 ? '1試合の参考' : '実績あり'}</span>
+  </article>`).join('')}</div>`;
+}
+function renderSelectionCandidates(team, draft) {
+  const opponentSelected = draft.opponentPokemon.filter(pokemon => pokemon.selected).map(pokemon => pokemon.baseName).filter(Boolean);
+  if (opponentSelected.length !== 3) return '';
+  const sameTeamRecords = state.records.filter(record => record.teamId === team.id && record.id !== state.editingId);
+  const exact = groupSelectionCandidates(sameTeamRecords, opponentSelected, 'exact');
+  const similar = groupSelectionCandidates(sameTeamRecords, opponentSelected, 'similar');
+  const exactMessage = exact.length
+    ? `<div class="selection-section"><h4>同じ相手選出での実績</h4><p class="help-text">相手：${e(opponentSelected.join('・'))}。現在の構築「${e(team.name)}」で記録した試合だけを比較しています。</p>${renderSelectionCandidateRows(exact)}</div>`
+    : `<div class="selection-section"><h4>同じ相手選出での実績</h4><p class="help-text">同じ3匹の記録はまだありません。</p></div>`;
+  const similarMessage = similar.length
+    ? `<details class="selection-similar"><summary>相手2匹一致の参考を見る（${similar.reduce((sum, candidate) => sum + candidate.total, 0)}戦）</summary><p class="help-text">同じ3匹ではないため、次回の候補を考えるための参考です。</p>${renderSelectionCandidateRows(similar)}</details>`
+    : '';
+  return `<div class="section-block selection-insights"><div class="section-label"><h3>次回以降の選出候補</h3><p>相手の選出3匹を選ぶと、同じ構築での過去実績を出します。</p></div>${exactMessage}${similarMessage}</div>`;
+}
+function renderMatchupInsights(team, draft) {
+  const opponentNames = draft.opponentPokemon.map(pokemon => pokemon.baseName);
+  if (opponentNames.length !== 6 || opponentNames.some(name => !validBaseName(name))) return '';
+  const threats = matchupRanking(opponentNames, team.pokemon);
+  const selfCandidates = matchupRanking(team.pokemon, opponentNames);
+  return `<div class="section-block matchup-insights">
+    <div class="section-label"><h3>タイプ相性の要注意ランキング</h3><p>タイプ一致技だけを想定。技・特性・持ち物・素早さは反映しません。</p></div>
+    <div class="matchup-ranking-grid">
+      <section class="matchup-ranking-card"><h4>相手 → 自分：要注意</h4><p class="help-text">自分6匹へタイプ一致で圧をかけやすい順。</p><div class="matchup-rank-list">${threats.map((row, index) => renderMatchupRankItem(row, index, 'opponent')).join('')}</div></section>
+      <section class="matchup-ranking-card"><h4>自分 → 相手：出しやすさ</h4><p class="help-text">相手6匹へタイプ一致を通しやすい順。</p><div class="matchup-rank-list">${selfCandidates.map((row, index) => renderMatchupRankItem(row, index, 'self')).join('')}</div></section>
+    </div>
+  </div>${renderSelectionCandidates(team, draft)}`;
+}
+
 function renderSpeedRow(row, index) {
   const selfNames = state.draft.selfPokemon;
   const opponentNames = state.draft.opponentPokemon.filter(p => p.selected).map(p => p.baseName);

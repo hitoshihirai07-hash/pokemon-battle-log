@@ -169,3 +169,26 @@ td.number { text-align: right; font-variant-numeric: tabular-nums; }
   .submit-row { flex-direction: column-reverse; align-items: stretch; }
   .submit-row button { width: 100%; }
 }
+
+
+.matchup-insights, .selection-insights { scroll-margin-top: 18px; }
+.matchup-ranking-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.matchup-ranking-card { border: 1px solid var(--line); border-radius: 14px; padding: 13px; background: #fffdfa; }
+.matchup-ranking-card h4, .selection-section h4 { margin: 0 0 4px; font-size: .94rem; }
+.matchup-ranking-card > .help-text, .selection-section > .help-text { margin: 0; }
+.matchup-rank-list, .selection-candidate-list { display: grid; gap: 7px; margin-top: 10px; }
+.matchup-rank-item, .selection-candidate { display: grid; grid-template-columns: 26px minmax(0, 1fr) auto; gap: 8px; align-items: center; padding: 9px; border: 1px solid var(--line); border-radius: 11px; background: #fff; }
+.rank-number { width: 24px; height: 24px; display: grid; place-items: center; border-radius: 999px; background: var(--soft-2); color: var(--accent-deep); font-size: .76rem; font-weight: 900; }
+.matchup-rank-copy { min-width: 0; }
+.matchup-rank-copy strong, .selection-candidate strong { display: block; font-size: .87rem; }
+.matchup-rank-copy p, .selection-candidate p { margin: 3px 0 0; color: var(--muted); font-size: .75rem; line-height: 1.45; }
+.matchup-score { white-space: nowrap; color: var(--accent-deep); font-size: .75rem; font-weight: 850; }
+.selection-section { border: 1px solid var(--line); border-radius: 14px; padding: 13px; background: #fffdfa; }
+.selection-candidate { grid-template-columns: minmax(0, 1fr) auto; }
+.selection-similar { margin-top: 11px; border: 1px dashed #dac8b6; border-radius: 12px; padding: 10px 12px; background: rgba(255,255,255,.55); }
+.selection-similar .help-text { margin: 8px 0 0; }
+@media (max-width: 680px) {
+  .matchup-ranking-grid { grid-template-columns: 1fr; }
+  .matchup-rank-item { grid-template-columns: 25px minmax(0, 1fr); }
+  .matchup-score { grid-column: 2; justify-self: start; }
+}
