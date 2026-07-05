@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#fff8f0">
+  <title>Pokémon Battle Log</title>
+  <link rel="stylesheet" href="./style.css">
+</head>
+<body>
+  <div class="site-shell">
+    <header class="site-header">
+      <div class="brand-block">
+        <p class="eyebrow">Pokémon Champions</p>
+        <h1>対戦ログ</h1>
+        <p class="brand-copy">対戦後に残す。次の判断に使う。</p>
+      </div>
+      <div class="header-tools">
+        <label class="season-control">候補データ
+          <select id="season-select" aria-label="候補データのシーズン">
+            <option value="S3">S3</option>
+            <option value="S2">S2</option>
+            <option value="S1">S1</option>
+            <option value="all">全データ</option>
+          </select>
+        </label>
+        <button class="quiet-button" id="export-button" type="button">記録をバックアップ</button>
+        <button class="quiet-button" id="lock-button" type="button">ロック</button>
+      </div>
+    </header>
+
+    <nav class="main-nav" aria-label="メインメニュー">
+      <button class="nav-button is-active" type="button" data-view="record">対戦を記録</button>
+      <button class="nav-button" type="button" data-view="history">対戦履歴</button>
+      <button class="nav-button" type="button" data-view="analysis">相手集計</button>
+      <button class="nav-button" type="button" data-view="teams">自分の構築</button>
+    </nav>
+
+    <main id="app" class="app-main" aria-live="polite">
+      <section class="loading-card"><p>候補データを読み込んでいます。</p></section>
+    </main>
+  </div>
+
+  <div class="login-layer" id="login-layer" aria-hidden="true">
+    <form class="login-card" id="login-form">
+      <p class="eyebrow">PRIVATE BATTLE LOG</p>
+      <h2>対戦ログを開く</h2>
+      <p>Cloudflareに設定したPINを入力してください。このブラウザを閉じるまでだけ保持します。</p>
+      <label>PIN
+        <input id="pin-input" type="password" autocomplete="current-password" required>
+      </label>
+      <p class="form-error" id="login-error" role="alert"></p>
+      <button class="primary-button" type="submit">開く</button>
+    </form>
+  </div>
+
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+  <script type="module" src="./app.js"></script>
+</body>
+</html>

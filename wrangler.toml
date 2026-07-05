@@ -1,0 +1,6 @@
+name = "pokemon-battle-log"
+compatibility_date = "2026-07-05"
+pages_build_output_dir = "./public"
+
+# D1のDBバインドはCloudflare Pagesの
+# Settings > Bindings で「DB」として追加します。

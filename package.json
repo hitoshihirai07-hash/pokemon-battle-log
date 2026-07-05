@@ -1,0 +1,13 @@
+{
+  "name": "pokemon-battle-log",
+  "version": "1.0.0",
+  "private": true,
+  "description": "ポケモン対戦の構築・選出・判明情報を記録するCloudflare Pagesアプリ",
+  "scripts": {
+    "dev": "wrangler pages dev public --d1=DB",
+    "deploy": "wrangler pages deploy public"
+  },
+  "devDependencies": {
+    "wrangler": "^4.28.0"
+  }
+}
