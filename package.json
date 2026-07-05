@@ -1,11 +1,11 @@
 {
   "name": "pokemon-battle-log",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "private": true,
-  "description": "ポケモン対戦の構築・選出・判明情報を記録するCloudflare Pagesアプリ",
+  "description": "ポケモンチャンピオンズ用の個人対戦ログ。Cloudflare Pages + D1で同期保存。",
   "scripts": {
-    "dev": "wrangler pages dev public --d1=DB",
-    "deploy": "wrangler pages deploy public"
+    "build": "node -e \"const fs=require('fs'); for (const p of ['public/index.html','functions/api/health.js']) if (!fs.existsSync(p)) throw new Error(p+' がありません');\"",
+    "dev": "wrangler pages dev public --compatibility-date=2026-07-05 --d1=DB --binding=APP_PIN=local-dev-pin"
   },
   "devDependencies": {
     "wrangler": "^4.28.0"

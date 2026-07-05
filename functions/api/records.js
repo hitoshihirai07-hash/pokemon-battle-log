@@ -1,13 +1,13 @@
-function json(data, status = 200) {
-  return new Response(JSON.stringify(data), { status, headers: { 'content-type': 'application/json; charset=UTF-8', 'cache-control': 'no-store' } });
-}
+import { database } from './_lib/db.js';
+import { json, message, errorStatus } from './_lib/http.js';
+
 const parse = (value, fallback) => { try { return JSON.parse(value); } catch { return fallback; } };
 function toRecord(row) {
   return {
     id: row.id, battleDate: row.battle_date, result: row.result, teamId: row.team_id,
     selfPokemon: parse(row.self_pokemon_json, []), opponentPokemon: parse(row.opponent_pokemon_json, []),
     speed: parse(row.speed_json, []), damage: parse(row.damage_json, []), note: row.note || '', otherNote: row.other_note || '',
-    createdAt: row.created_at, updatedAt: row.updated_at
+    createdAt: row.created_at, updatedAt: row.updated_at,
   };
 }
 function validate(body) {
@@ -28,23 +28,39 @@ function normalise(body) {
     opponentPokemon: body.opponentPokemon.map(p => ({
       baseName: String(p?.baseName || '').trim(), selected: Boolean(p?.selected), megaName: String(p?.megaName || '').trim(),
       moves: Array.isArray(p?.moves) ? p.moves.map(v => String(v || '').trim()).filter(Boolean).slice(0, 4) : [],
-      item: String(p?.item || '').trim(), ability: String(p?.ability || '').trim(), note: String(p?.note || '').trim()
+      item: String(p?.item || '').trim(), ability: String(p?.ability || '').trim(), note: String(p?.note || '').trim(),
     })),
     speed: Array.isArray(body.speed) ? body.speed.map(s => ({ selfName: String(s?.selfName || '').trim(), opponentName: String(s?.opponentName || '').trim(), result: String(s?.result || ''), condition: String(s?.condition || ''), note: String(s?.note || '').trim() })).filter(s => s.selfName && s.opponentName && s.result) : [],
     damage: Array.isArray(body.damage) ? body.damage.map(d => ({ side: String(d?.side || ''), attacker: String(d?.attacker || '').trim(), defender: String(d?.defender || '').trim(), move: String(d?.move || '').trim(), percent: String(d?.percent || '').trim(), amount: String(d?.amount || '').trim(), note: String(d?.note || '').trim() })).filter(d => d.attacker && d.defender) : [],
-    note: String(body.note || '').trim(), otherNote: String(body.otherNote || '').trim()
+    note: String(body.note || '').trim(), otherNote: String(body.otherNote || '').trim(),
   };
 }
+
 export async function onRequestGet({ env }) {
-  const { results } = await env.DB.prepare('SELECT * FROM records ORDER BY battle_date DESC, created_at DESC').all();
-  return json({ ok: true, records: results.map(toRecord) });
+  try {
+    const DB = await database(env);
+    const { results } = await DB.prepare('SELECT * FROM records ORDER BY battle_date DESC, created_at DESC').all();
+    return json({ ok: true, records: results.map(toRecord) });
+  } catch (error) {
+    return message(error.message || '対戦記録を読み込めませんでした。', errorStatus(error));
+  }
 }
+
 export async function onRequestPost({ request, env }) {
-  let body; try { body = await request.json(); } catch { return json({ ok: false, error: '入力内容を読み取れませんでした。' }, 400); }
-  const error = validate(body); if (error) return json({ ok: false, error }, 400);
-  const record = normalise(body); const id = body.id || crypto.randomUUID();
-  await env.DB.prepare(`INSERT INTO records (id, battle_date, result, team_id, self_pokemon_json, opponent_pokemon_json, speed_json, damage_json, note, other_note, created_at, updated_at)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'))`)
-    .bind(id, record.battleDate, record.result, record.teamId, JSON.stringify(record.selfPokemon), JSON.stringify(record.opponentPokemon), JSON.stringify(record.speed), JSON.stringify(record.damage), record.note, record.otherNote).run();
-  return json({ ok: true, id });
+  let body;
+  try { body = await request.json(); } catch { return message('入力内容を読み取れませんでした。', 400); }
+  const validationError = validate(body);
+  if (validationError) return message(validationError, 400);
+
+  try {
+    const DB = await database(env);
+    const record = normalise(body);
+    const id = body.id || crypto.randomUUID();
+    await DB.prepare(`INSERT INTO records (id, battle_date, result, team_id, self_pokemon_json, opponent_pokemon_json, speed_json, damage_json, note, other_note, created_at, updated_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'))`)
+      .bind(id, record.battleDate, record.result, record.teamId, JSON.stringify(record.selfPokemon), JSON.stringify(record.opponentPokemon), JSON.stringify(record.speed), JSON.stringify(record.damage), record.note, record.otherNote).run();
+    return json({ ok: true, id });
+  } catch (error) {
+    return message(error.message || '対戦記録を保存できませんでした。', errorStatus(error));
+  }
 }

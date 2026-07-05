@@ -58,6 +58,23 @@ function setLogin(open) {
 function apiHeaders(extra = {}) {
   return { 'content-type': 'application/json', 'x-app-pin': state.pin, ...extra };
 }
+async function checkSetup() {
+  let response;
+  try {
+    response = await fetch('/api/health', { cache: 'no-store' });
+  } catch {
+    throw new Error('Cloudflare Functionsへ接続できませんでした。Pagesのルートディレクトリは空欄、ビルド出力ディレクトリは public にして、最新のmainを再デプロイしてください。');
+  }
+  let payload;
+  try { payload = await response.json(); } catch { payload = { ok: false }; }
+  if (response.status === 404) {
+    throw new Error('Cloudflare Functionsが公開されていません。Pagesのルートディレクトリを public にせず空欄にし、ビルド出力ディレクトリだけを public にして再デプロイしてください。');
+  }
+  if (!response.ok || !payload.ok) {
+    throw new Error(payload.error || 'Cloudflareの保存設定を確認できませんでした。');
+  }
+}
+
 async function api(path, options = {}) {
   const response = await fetch(path, { ...options, headers: apiHeaders(options.headers || {}) });
   let payload;
@@ -617,6 +634,7 @@ loginForm.addEventListener('submit', async event => {
 (async () => {
   try {
     await loadData();
+    await checkSetup();
     if (state.pin) {
       try { await loadRemote(); setLogin(false); render(); }
       catch { setLogin(true); render(); }
